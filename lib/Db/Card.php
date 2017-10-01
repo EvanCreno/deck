@@ -37,6 +37,7 @@ class Card extends RelationalEntity implements JsonSerializable {
 	protected $lastModified;
 	protected $createdAt;
 	protected $labels;
+	protected $assignedUsers;
 	protected $owner;
 	protected $order;
 	protected $archived = false;
@@ -55,6 +56,7 @@ class Card extends RelationalEntity implements JsonSerializable {
 		$this->addType('createdAt', 'integer');
 		$this->addType('archived', 'boolean');
 		$this->addRelation('labels');
+		$this->addRelation('assignedUsers');
 		$this->addRelation('participants');
 		$this->addResolvable('owner');
 	}
