@@ -28,11 +28,12 @@ use OCA\Deck\Db\AclMapper;
 use OCA\Deck\Db\Board;
 use OCA\Deck\Db\BoardMapper;
 use OCA\Deck\Db\IPermissionMapper;
+use OCA\Deck\Db\User;
 use OCA\Deck\NoPermissionException;
 use OCP\AppFramework\Db\DoesNotExistException;
 use OCP\IGroupManager;
 use OCP\ILogger;
-
+use OCP\IUserManager;
 
 
 class PermissionService {
@@ -41,12 +42,14 @@ class PermissionService {
 	private $aclMapper;
 	private $logger;
 	private $userId;
-
-	public function __construct(ILogger $logger, AclMapper $aclMapper, BoardMapper $boardMapper, IGroupManager $groupManager, $userId) {
+	/** @var null|array */
+	private $users = null;
+	public function __construct(ILogger $logger, AclMapper $aclMapper, BoardMapper $boardMapper, IGroupManager $groupManager, IUserManager $userManager, $userId) {
 		$this->aclMapper = $aclMapper;
 		$this->boardMapper = $boardMapper;
 		$this->logger = $logger;
 		$this->groupManager = $groupManager;
+		$this->userManager = $userManager;
 		$this->userId = $userId;
 	}
 
@@ -158,5 +161,37 @@ class PermissionService {
 			}
 		}
 		return $hasGroupPermission;
+	}
+
+	/**
+	 * Find a list of all users (including the ones from groups)
+	 * Required to allow assigning them to cards
+	 *
+	 * @param $boardId
+	 * @return array|null
+	 */
+	public function findUsers($boardId) {
+		if ($this->users !== null) {
+			return $this->users;
+		}
+		$board = $this->boardMapper->find($boardId);
+		$this->users = [
+			new User($this->userManager->get($board->getOwner()))
+		];
+		$acls = $this->aclMapper->findAll($boardId);
+		/** @var Acl $acl */
+		foreach ($acls as $acl) {
+			if ($acl->getType() === Acl::PERMISSION_TYPE_USER) {
+				$user = $this->userManager->get($acl->getParticipant());
+				$this->users[] = new User($user);
+			}
+			if($acl->getType() === Acl::PERMISSION_TYPE_GROUP) {
+				$group = $this->groupManager->get($acl->getParticipant());
+				foreach ($group->getUsers() as $user) {
+					$this->users[] = new User($user);
+				}
+			}
+		}
+		return $this->users;
 	}
 }
